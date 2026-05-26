@@ -1,0 +1,545 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Kamera App - Preview</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+    background: #000;
+    height: 100dvh;
+    width: 100vw;
+    overflow: hidden;
+    position: fixed;
+  }
+
+  /* Camera App Container */
+  .camera-container {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+  }
+
+  /* Preview area */
+  .preview-area {
+    flex: 1;
+    position: relative;
+    background: #0a0a0a;
+    overflow: hidden;
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Atas - tombol close & info */
+  .top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+    z-index: 20;
+    pointer-events: none;
+  }
+
+  .close-btn {
+    pointer-events: auto;
+    width: 44px;
+    height: 44px;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(15px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.2);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .close-btn:active {
+    transform: scale(0.92);
+    background: rgba(0,0,0,0.7);
+  }
+
+  .close-btn svg {
+    width: 22px;
+    height: 22px;
+    stroke: white;
+    stroke-width: 2;
+  }
+
+  .camera-status {
+    pointer-events: auto;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(10px);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: white;
+    font-weight: 500;
+  }
+
+  /* Controls bottom */
+  .controls {
+    position: absolute;
+    bottom: 30px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 45px;
+    padding: 20px 30px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    z-index: 20;
+  }
+
+  .shutter {
+    width: 80px;
+    height: 80px;
+    background: white;
+    border-radius: 50%;
+    border: 4px solid rgba(255,255,255,0.5);
+    cursor: pointer;
+    transition: all 0.08s linear;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  }
+
+  .shutter:active {
+    transform: scale(0.88);
+    background: #e0e0e0;
+  }
+
+  .switch-cam {
+    width: 52px;
+    height: 52px;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(12px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.25);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .switch-cam:active {
+    transform: scale(0.9);
+    background: rgba(0,0,0,0.75);
+  }
+
+  .switch-cam svg {
+    width: 26px;
+    height: 26px;
+    stroke: white;
+    stroke-width: 1.8;
+    fill: none;
+  }
+
+  .placeholder-right {
+    width: 52px;
+  }
+
+  /* Preview popup setelah motret */
+  .preview-modal {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(20,20,22,0.96);
+    backdrop-filter: blur(30px);
+    border-radius: 28px 28px 0 0;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    z-index: 2000;
+    padding: 20px 20px 32px;
+    box-shadow: 0 -5px 25px rgba(0,0,0,0.5);
+  }
+
+  .preview-modal.active {
+    transform: translateY(0);
+  }
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .preview-header h3 {
+    color: white;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .preview-close {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .preview-close:active {
+    background: rgba(255,255,255,0.3);
+  }
+
+  .preview-image {
+    width: 100%;
+    background: #1c1c1e;
+    border-radius: 24px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    aspect-ratio: 4 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .preview-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+  }
+
+  .preview-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .save-btn {
+    flex: 1;
+    background: #22c55e;
+    border: none;
+    padding: 16px;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 16px;
+    color: #000;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .save-btn:active {
+    transform: scale(0.97);
+    background: #16a34a;
+  }
+
+  .discard-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 16px;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 16px;
+    color: #ff6b6b;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .discard-btn:active {
+    background: rgba(255,255,255,0.2);
+  }
+
+  .toast-msg {
+    position: fixed;
+    bottom: 120px;
+    left: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(15px);
+    padding: 12px 20px;
+    border-radius: 40px;
+    text-align: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 2500;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.25s ease;
+    pointer-events: none;
+  }
+
+  .toast-msg.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .error-msg {
+    position: absolute;
+    bottom: 30%;
+    left: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(12px);
+    padding: 16px;
+    border-radius: 24px;
+    text-align: center;
+    color: #ff9f4a;
+    font-size: 14px;
+    z-index: 30;
+  }
+</style>
+</head>
+<body>
+
+<div class="camera-container" id="cameraContainer">
+  <div class="preview-area">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <div class="top-bar">
+      <div class="close-btn" id="closeCameraBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </div>
+      <div class="camera-status" id="camStatus">📷 Kamera</div>
+    </div>
+    <div class="controls">
+      <div class="switch-cam" id="switchCamBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6" />
+          <path d="M1 20v-6h6" />
+          <path d="M3.51 9a9 9 0 0 1 14.84-3.36L23 10" />
+          <path d="M20.49 15a9 9 0 0 1-14.84 3.36L1 14" />
+        </svg>
+      </div>
+      <div class="shutter" id="shutterBtn"></div>
+      <div class="placeholder-right"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="preview-modal" id="previewModal">
+  <div class="preview-header">
+    <h3>📸 Hasil Jepretan</h3>
+    <button class="preview-close" id="modalCloseBtn">✕</button>
+  </div>
+  <div class="preview-image">
+    <img id="previewPhoto" alt="preview">
+  </div>
+  <div class="preview-actions">
+    <button class="discard-btn" id="discardBtn">Batal</button>
+    <button class="save-btn" id="savePhotoBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Simpan ke Galeri
+    </button>
+  </div>
+</div>
+
+<div class="toast-msg" id="toastMsg">Tersimpan ✓</div>
+
+<script>
+  // ------------------- ELEMENTS -------------------
+  const video = document.getElementById('cameraVideo');
+  const shutterBtn = document.getElementById('shutterBtn');
+  const switchBtn = document.getElementById('switchCamBtn');
+  const closeBtn = document.getElementById('closeCameraBtn');
+  const previewModal = document.getElementById('previewModal');
+  const previewPhoto = document.getElementById('previewPhoto');
+  const saveBtn = document.getElementById('savePhotoBtn');
+  const discardBtn = document.getElementById('discardBtn');
+  const modalCloseBtn = document.getElementById('modalCloseBtn');
+  const toastMsg = document.getElementById('toastMsg');
+
+  // ------------------- STATE -------------------
+  let currentStream = null;
+  let facingMode = 'environment';   // 'environment' = kamera belakang, 'user' = depan
+  let capturedImageData = null;      // simpan dataURL
+
+  // ------------------- HELPER TOAST -------------------
+  function showToast(text, duration = 2000) {
+    toastMsg.textContent = text;
+    toastMsg.classList.add('show');
+    setTimeout(() => {
+      toastMsg.classList.remove('show');
+    }, duration);
+  }
+
+  // ------------------- START KAMERA -------------------
+  async function startCamera() {
+    // stop stream sebelumnya jika ada
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+    }
+
+    const constraints = {
+      video: {
+        facingMode: { exact: facingMode },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    };
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      currentStream = stream;
+      video.srcObject = stream;
+      video.setAttribute('playsinline', true);
+      await video.play();
+      document.getElementById('camStatus').innerHTML = facingMode === 'environment' ? '📱 Kamera Belakang' : '🤳 Kamera Depan';
+    } catch (err) {
+      console.warn('FacingMode error, fallback ke default:', err);
+      // fallback: tanpa facingMode
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        currentStream = fallbackStream;
+        video.srcObject = fallbackStream;
+        video.setAttribute('playsinline', true);
+        await video.play();
+        document.getElementById('camStatus').innerHTML = '📷 Kamera (default)';
+      } catch (finalErr) {
+        console.error('Gagal akses kamera:', finalErr);
+        showToast('Tidak bisa akses kamera. Periksa izin & HTTPS.', 3000);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-msg';
+        errorDiv.innerText = '❌ Gagal mengakses kamera. Pastikan pakai HTTPS atau localhost, dan izinkan akses kamera.';
+        document.querySelector('.preview-area').appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 4000);
+      }
+    }
+  }
+
+  // ------------------- SWITCH KAMERA (depan / belakang) -------------------
+  async function switchCamera() {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    await startCamera();
+  }
+
+  // ------------------- AMBIL FOTO (jepret) -------------------
+  function capturePhoto() {
+    if (!video.videoWidth || !video.videoHeight) {
+      showToast('Video belum siap, coba lagi', 1000);
+      return;
+    }
+
+    // buat canvas sesuai ukuran video
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    // gambar frame dari video
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // convert ke dataURL (PNG)
+    const imageDataURL = canvas.toDataURL('image/png');
+    capturedImageData = imageDataURL;
+    
+    // tampilkan preview
+    previewPhoto.src = capturedImageData;
+    previewModal.classList.add('active');
+    
+    // efek kilat (shutter animasi)
+    shutterBtn.style.transform = 'scale(0.85)';
+    setTimeout(() => {
+      shutterBtn.style.transform = '';
+    }, 120);
+  }
+
+  // ------------------- SIMPAN FOTO (download) -------------------
+  function savePhoto() {
+    if (!capturedImageData) {
+      showToast('Tidak ada foto untuk disimpan', 1000);
+      return;
+    }
+    
+    // Buat link download
+    const link = document.createElement('a');
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}_${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
+    link.download = `foto_${timestamp}.png`;
+    link.href = capturedImageData;
+    link.click();
+    
+    showToast('✅ Foto tersimpan! Cek folder Download', 2200);
+    closePreviewModal();
+  }
+
+  function closePreviewModal() {
+    previewModal.classList.remove('active');
+    capturedImageData = null;
+    previewPhoto.src = '';
+  }
+
+  // ------------------- TUTUP KAMERA (keluar) -------------------
+  function closeCamera() {
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+      currentStream = null;
+    }
+    video.srcObject = null;
+    // setelah tutup, kita bisa kasih pesan atau keluar dari halaman demo
+    showToast('Kamera ditutup', 1000);
+    setTimeout(() => {
+      // untuk demo standalone, kita reset halaman (opsional) biar bisa buka ulang.
+      // tapi biar user buka ulang dengan refresh? lebih baik biarkan camera mati.
+      // Tapi karena ini terpisah, kita bisa kasih pesan aja.
+      document.body.style.backgroundColor = '#0a0a0a';
+      const msgDiv = document.createElement('div');
+      msgDiv.style.position = 'fixed';
+      msgDiv.style.bottom = '40px';
+      msgDiv.style.left = '20px';
+      msgDiv.style.right = '20px';
+      msgDiv.style.background = '#1e1e2f';
+      msgDiv.style.padding = '18px';
+      msgDiv.style.borderRadius = '28px';
+      msgDiv.style.textAlign = 'center';
+      msgDiv.style.color = '#ccc';
+      msgDiv.style.fontWeight = '500';
+      msgDiv.style.zIndex = '10000';
+      msgDiv.innerHTML = '📱 Kamera ditutup. <br> <span style="color:#22c55e;">Tekan F5 / Refresh</span> untuk membuka ulang demo.';
+      document.body.appendChild(msgDiv);
+    }, 200);
+  }
+
+  // ------------------- EVENT LISTENERS -------------------
+  shutterBtn.addEventListener('click', capturePhoto);
+  switchBtn.addEventListener('click', switchCamera);
+  closeBtn.addEventListener('click', closeCamera);
+  saveBtn.addEventListener('click', savePhoto);
+  discardBtn.addEventListener('click', closePreviewModal);
+  modalCloseBtn.addEventListener('click', closePreviewModal);
+
+  // ------------------- INITIAL LOAD -------------------
+  startCamera().catch(err => {
+    console.error('Init kamera gagal:', err);
+    showToast('Butuh izin kamera dan koneksi HTTPS', 3000);
+  });
+</script>
+</body>
+</html>
